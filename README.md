@@ -2,7 +2,7 @@
 Kafka persistent stream provider for [Microsoft Orleans](https://dotnet.github.io/orleans). This project was forked from [gigya/Orleans.KafkaStreamProvider](https://github.com/gigya/Orleans.KafkaStreamProvider)
 
 ## Overview
-The KafkaStreamProvider is a new implementation (targeting .NET Standard 2.0) of a [PersistentStreamProvider](https://github.com/dotnet/orleans/blob/master/src/Orleans.Core/Streams/PersistentStreams/PersistentStreamProvider.cs) for Microsoft Orleans.
+The KafkaStreamProvider is a new implementation (targeting .NET Standard 2.0) of a [IQueueAdapterFactory](https://github.com/dotnet/orleans/blob/master/src/Orleans.Core/Streams/QueueAdapters/IQueueAdapterFactory.cs) for [PersistentStreamProvider](https://github.com/dotnet/orleans/blob/master/src/Orleans.Core/Streams/PersistentStreams/PersistentStreamProvider.cs) for Microsoft Orleans.
 It works with a [confluent-kafka-dotnet](https://github.com/confluentinc/confluent-kafka-dotnet) library which is a Confluent's .NET client for [Apache Kafka](http://kafka.apache.org/)
 
 # Dependencies
