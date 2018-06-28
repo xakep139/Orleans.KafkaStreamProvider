@@ -1,7 +1,7 @@
 ﻿using System;
 using Microsoft.Extensions.DependencyInjection;
 using Orleans.Configuration;
-using Orleans.KafkaStreamProvider.KafkaQueue;
+using Orleans.Providers.Streams.KafkaQueue;
 using Orleans.Runtime;
 
 namespace Orleans.KafkaStreamProvider

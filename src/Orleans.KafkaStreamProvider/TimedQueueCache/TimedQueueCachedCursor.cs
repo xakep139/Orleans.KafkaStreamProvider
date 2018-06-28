@@ -4,7 +4,7 @@ using Microsoft.Extensions.Logging;
 using Orleans.Runtime;
 using Orleans.Streams;
 
-namespace Orleans.KafkaStreamProvider.KafkaQueue.TimedQueueCache
+namespace Orleans.Providers.Streams.KafkaQueue.TimedQueueCache
 {
     /// <summary>
     /// The TimedQueueCacheCursor is at the moment identical to SimpleQueueCache cursor. We are not using the SimpleCacheCursor in order 
@@ -65,6 +65,7 @@ namespace Orleans.KafkaStreamProvider.KafkaQueue.TimedQueueCache
                 if(IsInStream(next))
                     break;
             }
+
             if (!IsInStream(next))
                 return false;
 
@@ -107,8 +108,8 @@ namespace Orleans.KafkaStreamProvider.KafkaQueue.TimedQueueCache
 
         public override string ToString()
         {
-            return string.Format("<TimedQueueCacheCursor: Element={0}, SequenceToken={1}>",
-                NextElement != null ? NextElement.Value.Batch.ToString() : "null", SequenceToken?.ToString() ?? "null");
+            return
+                $"<TimedQueueCacheCursor: Element={(NextElement != null ? NextElement.Value.Batch.ToString() : "null")}, SequenceToken={SequenceToken?.ToString() ?? "null"}>";
         }
 
         public void RecordDeliveryFailure()

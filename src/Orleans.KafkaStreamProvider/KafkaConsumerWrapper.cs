@@ -4,7 +4,7 @@ using Confluent.Kafka;
 using Confluent.Kafka.Serialization;
 using Microsoft.Extensions.Logging;
 
-namespace Orleans.KafkaStreamProvider.KafkaQueue
+namespace Orleans.Providers.Streams.KafkaQueue
 {
     public abstract class KafkaConsumerWrapper : IDisposable
     {

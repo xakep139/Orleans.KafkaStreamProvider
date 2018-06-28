@@ -9,7 +9,7 @@ using Orleans.Runtime;
 using Orleans.Serialization;
 using Orleans.Streams;
 
-namespace Orleans.KafkaStreamProvider.KafkaQueue
+namespace Orleans.Providers.Streams.KafkaQueue
 {
     public class KafkaQueueAdapterReceiver : KafkaConsumerWrapper, IQueueAdapterReceiver
     {

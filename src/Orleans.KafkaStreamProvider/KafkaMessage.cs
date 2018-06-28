@@ -1,6 +1,6 @@
 ﻿using Confluent.Kafka;
 
-namespace Orleans.KafkaStreamProvider.KafkaQueue
+namespace Orleans.Providers.Streams.KafkaQueue
 {
     public class KafkaMessage
     {

@@ -6,7 +6,7 @@ using Orleans.Providers.Streams.Common;
 using Orleans.Runtime;
 using Orleans.Streams;
 
-namespace Orleans.KafkaStreamProvider.KafkaQueue
+namespace Orleans.Providers.Streams.KafkaQueue
 {
     [Serializable]
     public class KafkaBatchContainer : IBatchContainer

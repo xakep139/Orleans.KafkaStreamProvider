@@ -7,7 +7,7 @@ using Orleans.Providers.Streams.Common;
 using Orleans.Runtime;
 using Orleans.Streams;
 
-namespace Orleans.KafkaStreamProvider.KafkaQueue.TimedQueueCache
+namespace Orleans.Providers.Streams.KafkaQueue.TimedQueueCache
 {
     /// <summary>
     ///  For backpressure detection we maintain a histogram of 10 buckets.
@@ -25,7 +25,6 @@ namespace Orleans.KafkaStreamProvider.KafkaQueue.TimedQueueCache
     /// </summary>
     internal class TimedQueueCacheBucket
     {
-
         internal int NumCurrentItems { get; private set; }
         internal int NumCurrentCursors { get; private set; }
         internal DateTime OldestMemberTimestamp;
@@ -78,7 +77,6 @@ namespace Orleans.KafkaStreamProvider.KafkaQueue.TimedQueueCache
         private readonly TimeSpan _cacheTimeSpan;
         private readonly TimeSpan _bucketTimeSpan;
         private int _maxNumberToAdd;
-        private int _numOfCursorsCausingPressure;
 
         public QueueId Id { get; }
 
@@ -105,7 +103,10 @@ namespace Orleans.KafkaStreamProvider.KafkaQueue.TimedQueueCache
 
         ~TimedQueueCache()
         {
-            if (Id == null) return;
+            if (Id == null)
+            {
+                return;
+            }
 
             // We are using the destructor to update the TimedQueueCache Metrics (currently this is the only point where we can do this)
             if (_cachedMessages != null)
@@ -129,21 +130,18 @@ namespace Orleans.KafkaStreamProvider.KafkaQueue.TimedQueueCache
             // empty cache
             if (_cachedMessages.Count == 0)
             {
-                _numOfCursorsCausingPressure = 0;
                 return false;
             }
 
             // no cursors yet - zero consumers basically yet.
             if (_cacheCursorHistogram.Count == 0)
             {
-                _numOfCursorsCausingPressure = 0;
                 return false;
             }
 
             // If the cache still has room, no problem of adding 
             if (Size < _maxCacheSize)
             {
-                _numOfCursorsCausingPressure = 0;
                 CalculateMessagesToAdd();
                 return false;
             }
@@ -155,12 +153,8 @@ namespace Orleans.KafkaStreamProvider.KafkaQueue.TimedQueueCache
             var currentCacheTimespan = DateTime.UtcNow - _cacheCursorHistogram[0].NewestMemberTimestamp;
             if (numCursorsInLastBucket > 0 || currentCacheTimespan <= _cacheTimeSpan)
             {
-                _numOfCursorsCausingPressure = numCursorsInLastBucket;
                 return true;
             }
-
-            // Cache is full yet we can add messages, calculating how many messages we can put
-            _numOfCursorsCausingPressure = 0;
 
             CalculateMessagesToAdd();
             return false;
@@ -178,7 +172,10 @@ namespace Orleans.KafkaStreamProvider.KafkaQueue.TimedQueueCache
 
         public virtual void AddToCache(IList<IBatchContainer> msgs)
         {
-            if (msgs == null) throw new ArgumentNullException(nameof(msgs));
+            if (msgs == null)
+            {
+                throw new ArgumentNullException(nameof(msgs));
+            }
 
             Log(_logger, "TimedQueueCache for QueueId:{0}, AddToCache: added {1} items to cache.", Id.ToString(), msgs.Count);
 
@@ -267,7 +264,9 @@ namespace Orleans.KafkaStreamProvider.KafkaQueue.TimedQueueCache
                 // did we get to the end?
                 // node is the last message in the cache
                 if (node.Next == null)
+                {
                     break;
+                }
 
                 // if sequenceId is between the two, take the lower
                 if (node.Next.Value.SequenceToken.Older(sequenceToken))
@@ -294,7 +293,10 @@ namespace Orleans.KafkaStreamProvider.KafkaQueue.TimedQueueCache
 
             batch = null;
 
-            if (cursor == null) throw new ArgumentNullException(nameof(cursor));
+            if (cursor == null)
+            {
+                throw new ArgumentNullException(nameof(cursor));
+            }
 
             //if not set, try to set and then get next
             if (!cursor.IsSet)
@@ -329,6 +331,7 @@ namespace Orleans.KafkaStreamProvider.KafkaQueue.TimedQueueCache
             {
                 UpdateCursor(cursor, cursor.NextElement.Previous);
             }
+
             return true;
         }
 
@@ -368,7 +371,10 @@ namespace Orleans.KafkaStreamProvider.KafkaQueue.TimedQueueCache
 
         private void Add(IBatchContainer batch, StreamSequenceToken sequenceToken)
         {
-            if (batch == null) throw new ArgumentNullException(nameof(batch));
+            if (batch == null)
+            {
+                throw new ArgumentNullException(nameof(batch));
+            }
 
             var cacheBucket = GetOrCreateBucket();
 
@@ -378,10 +384,9 @@ namespace Orleans.KafkaStreamProvider.KafkaQueue.TimedQueueCache
             {
                 Batch = batch,
                 SequenceToken = sequenceToken,
-                CacheBucket = cacheBucket
+                CacheBucket = cacheBucket,
+                Timestamp = GetTimestampForItem(batch)
             };
-
-            item.Timestamp = GetTimestampForItem(batch);
 
             var newNode = new LinkedListNode<TimedQueueCacheItem>(item);
 
@@ -403,8 +408,9 @@ namespace Orleans.KafkaStreamProvider.KafkaQueue.TimedQueueCache
         private DateTime GetTimestampForItem(IBatchContainer batch)
         {
             // Here we check if the batch is a kafka stream 
-            var batchAsKafkaBatch = batch as KafkaBatchContainer;
-            return batchAsKafkaBatch == null ? DateTime.UtcNow : DateTime.ParseExact(batchAsKafkaBatch.Timestamp, "O", CultureInfo.InvariantCulture).ToUniversalTime();
+            return !(batch is KafkaBatchContainer batchAsKafkaBatch)
+                ? DateTime.UtcNow
+                : DateTime.ParseExact(batchAsKafkaBatch.Timestamp, "O", CultureInfo.InvariantCulture).ToUniversalTime();
         }
 
         private List<IBatchContainer> RemoveMessagesFromCache()
@@ -427,7 +433,7 @@ namespace Orleans.KafkaStreamProvider.KafkaQueue.TimedQueueCache
             // Now we are looking for old messages that needs to go away 
             // (the condition is that they are older than cache timespan and their bucket has no cursors on it)
             while (_cacheCursorHistogram.Count > 0 && _cacheCursorHistogram[0].NumCurrentCursors == 0 &&
-                   (DateTime.UtcNow - LastItem.Timestamp) > _cacheTimeSpan)
+                   DateTime.UtcNow - LastItem.Timestamp > _cacheTimeSpan)
             {
                 Log(_logger, "TimedQueueCache for QueueId:{0}, Add: last  message because of time expiration", Id.ToString());
 
@@ -479,7 +485,7 @@ namespace Orleans.KafkaStreamProvider.KafkaQueue.TimedQueueCache
 
             // if last bucket is full or containing all the TimeSpan, open a new one
             if (cacheBucket.NumCurrentItems == _cacheHistogramMaxBucketSize ||
-                (cacheBucket.NewestMemberTimestamp - cacheBucket.OldestMemberTimestamp) > _bucketTimeSpan)
+                cacheBucket.NewestMemberTimestamp - cacheBucket.OldestMemberTimestamp > _bucketTimeSpan)
             {
                 Log(_logger, "TimedQueueCache for QueueId:{0}, Add: Last bucket exceeded size ", Id.ToString());
                 cacheBucket = new TimedQueueCacheBucket();
@@ -502,8 +508,15 @@ namespace Orleans.KafkaStreamProvider.KafkaQueue.TimedQueueCache
 
         private StreamSequenceToken FloorSequenceToken(StreamSequenceToken token)
         {
-            if (!(token is EventSequenceToken tokenAsEventSequenceToken)) return token;
-            if (tokenAsEventSequenceToken.EventIndex == 0) return token;
+            if (!(token is EventSequenceToken tokenAsEventSequenceToken))
+            {
+                return token;
+            }
+
+            if (tokenAsEventSequenceToken.EventIndex == 0)
+            {
+                return token;
+            }
 
             var flooredToken = new EventSequenceToken(tokenAsEventSequenceToken.SequenceNumber);
             return flooredToken;

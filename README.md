@@ -1,17 +1,16 @@
 # Orleans.KafkaStreamProvider
-Kafka persistent stream provider for Microsoft Orleans
+Kafka persistent stream provider for [Microsoft Orleans](https://dotnet.github.io/orleans). This project was forked from [gigya/Orleans.KafkaStreamProvider](https://github.com/gigya/Orleans.KafkaStreamProvider)
 
 ## Version 1.0.3.0
 
 ## Overview
-The KafkaStreamProvider is a new implementation of a PersistentStreamProvider for Microsoft Orleans. 
-It works with a modified Kafka-Net library which is a native C# client for Apache Kafka (for more information see https://github.com/gigya/KafkaNetClient)
+The KafkaStreamProvider is a new implementation (targeting .NET Standard 2.0) of a PersistentStreamProvider for Microsoft Orleans.
+It works with a [confluent-kafka-dotnet](https://github.com/confluentinc/confluent-kafka-dotnet) library which is a Confluent's .NET client for [Apache Kafka](http://kafka.apache.org/)
 
 # Dependencies
 KafkaStreamProivder has the following dependencies:
-* Orleans 1.1 and up 
-* KafkaNetClient version 1.0.1.5 and up
-* Metrics.NET version 0.2.16 and up
+* [Orleans](https://www.nuget.org/profiles/Orleans) 2.0.3 and up 
+* [Confluent.Kafka](https://www.nuget.org/packages/Confluent.Kafka) version 0.11.4 and up
 
 ## Installation
 To start working with the KafkaStreamProvider make sure you do the following steps:
@@ -73,26 +72,6 @@ Under these principles, the cache will be under pressure under the following con
 
 This implementation allows rewinding on the cache (With limitations to the configured timespan of course).
 
-## Metrics
-The KafkaStreamProvider is taking metrics of the activity that is being run inside it. You can view the metrics wherever the KafkaStreamProvider is being run on the metrics port (a configurable value).
-
-The current metrics are:
-- Meters
- - Number of kafka messages produced per second
- - Number of kafka messages consumed per second 
- - Cache evacuations per second
-- Counter
- - Active receivers
- - Messages in cache
- - Number of cursors that are causing pressure
-- Histograms
- - Produced messages batch size
- - Number of consumed messages per fetch
-- Timers
- - Time to produce message
- - Time to consume messages
- - Time to commit offset
-
 ## <a name="configurableValues"></a>Configurable Values
 These are the configurable values that the KafkaStreamProvider offers to its users, the first three are required while the others have default values:
 
@@ -107,9 +86,6 @@ These are the configurable values that the KafkaStreamProvider offers to its use
 - **ReceiveWaitTimeInMs** - The time the QueueAdapterReceiver will wait when fetching a batch of messages from Kafka. If the Receiver did not get any messages in the allotted time, it will return an empty batch and will try again the next time the PullingAgent asks for messages. *Default value is 100*.
 - **ShouldInitWithLastOffset** - Determines whether the Receiver should get its initial offset from the value saved at Kafka (according to the ConsumerGroupName) or just take the last offset from Kafka (the top of the queue). *Default value is True*
 - **CacheTimespan** - The timespan in seconds the cache will guarantee to keep. *Default value is 60*
-- **MetricsPort** - The port for the Metrics to show its data on. *Default value is 20490*
-- **IncludeMetrics** - A boolean that determines whether to take metrics for the KafkaStreamProvider or not. *Default value is True*
-- **UsingExternalMetrics** - A boolean that tells the KafakStreamProvider whether the metrics where already initialized in an external app that is using KafkaStreamProvider. *Default value is false*
 
 Additionally you have the default configuration options offered by Orleans to any PersistentStreamProvider which can be found here (under StreamProvider configuration): http://dotnet.github.io/orleans/Orleans-Streams/Streams-Extensibility. 
 

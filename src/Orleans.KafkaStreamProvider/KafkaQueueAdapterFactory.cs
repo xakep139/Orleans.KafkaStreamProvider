@@ -3,11 +3,11 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Orleans.Configuration;
-using Orleans.KafkaStreamProvider.KafkaQueue.TimedQueueCache;
+using Orleans.Providers.Streams.KafkaQueue.TimedQueueCache;
 using Orleans.Serialization;
 using Orleans.Streams;
 
-namespace Orleans.KafkaStreamProvider.KafkaQueue
+namespace Orleans.Providers.Streams.KafkaQueue
 {
     public class KafkaQueueAdapterFactory : IQueueAdapterFactory
     {
