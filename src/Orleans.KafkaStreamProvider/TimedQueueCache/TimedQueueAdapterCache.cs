@@ -9,7 +9,7 @@ namespace Orleans.Providers.Streams.KafkaQueue.TimedQueueCache
         private readonly TimeSpan _cacheTimeSpan;
         private readonly int _cacheNumOfBuckets;
         private readonly ILogger _logger;
-        
+
         public TimedQueueAdapterCache(TimeSpan cacheTimeSpan, int cacheSize, int cacheNumOfBuckets, ILoggerFactory loggerFactory)
         {
             if (cacheTimeSpan == TimeSpan.Zero)

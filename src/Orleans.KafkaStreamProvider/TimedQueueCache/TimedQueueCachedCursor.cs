@@ -7,7 +7,7 @@ using Orleans.Streams;
 namespace Orleans.Providers.Streams.KafkaQueue.TimedQueueCache
 {
     /// <summary>
-    /// The TimedQueueCacheCursor is at the moment identical to SimpleQueueCache cursor. We are not using the SimpleCacheCursor in order 
+    /// The TimedQueueCacheCursor is at the moment identical to SimpleQueueCache cursor. We are not using the SimpleCacheCursor in order
     /// to be able to extend the CacheCursor without considering the SimpleQueueCache.
     /// </summary>
     public class TimedQueueCacheCursor : IQueueCacheCursor

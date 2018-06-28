@@ -13,11 +13,11 @@ namespace Orleans.Providers.Streams.KafkaQueue.TimedQueueCache
     ///  For backpressure detection we maintain a histogram of 10 buckets.
     ///  Every buckets records how many items are in the cache in that bucket
     ///  and how many cursors are pointing to an item in that bucket.
-    ///  In the TimedCache the bucket also takes note what is the newest and oldest members 
-    ///  timespan because buckets also  has a maximum timespan they 
+    ///  In the TimedCache the bucket also takes note what is the newest and oldest members
+    ///  timespan because buckets also  has a maximum timespan they
     ///  can hold (this is done for better bucket distribution)
-    ///  We update the NumCurrentItems, NewestMemberTimespan and OldestMemberTimespan 
-    ///  (when it's a new bucket) when we add and 
+    ///  We update the NumCurrentItems, NewestMemberTimespan and OldestMemberTimespan
+    ///  (when it's a new bucket) when we add and
     ///  remove cache item (potentially opening or removing a bucket)
     ///  We update NumCurrentCursors every time we move a cursor
     ///  If the first (most outdated bucket) has at least one cursor pointing to it,
@@ -44,7 +44,7 @@ namespace Orleans.Providers.Streams.KafkaQueue.TimedQueueCache
     }
 
     /// <summary>
-    /// The TimedQueueCacheItems is similar to the SimpleQueueCacheItem, but it also holds 
+    /// The TimedQueueCacheItems is similar to the SimpleQueueCacheItem, but it also holds
     /// a Timestamp so we will know how long the message is in the cache.
     /// </summary>
     internal struct TimedQueueCacheItem
@@ -59,12 +59,12 @@ namespace Orleans.Providers.Streams.KafkaQueue.TimedQueueCache
     /// The TimedQueueCache works similarly to the SimpleQueueCache but it also has a
     /// Timespan which is used as an expiration and retention time. I.e, only items
     /// that expire their Timespan (and were consumed by all cursors of course) are
-    /// allowed to be removed from the cache. That way the cache always guarantees 
-    /// to hold all the items that were inserted in a certain Timespan (for example 
+    /// allowed to be removed from the cache. That way the cache always guarantees
+    /// to hold all the items that were inserted in a certain Timespan (for example
     /// if the Timespan is 1 hour, all the messages that were inserted in the last
     /// hour will remain in the cache, with no regard if they were consumed or not).
-    /// The TimedQueueCache also offers to hold a callback for when items are being 
-    /// removed from the cache and also allows to define an interval for how many items 
+    /// The TimedQueueCache also offers to hold a callback for when items are being
+    /// removed from the cache and also allows to define an interval for how many items
     /// need to be removed before the callback is called.
     /// </summary>
     public class TimedQueueCache : IQueueCache
@@ -81,7 +81,7 @@ namespace Orleans.Providers.Streams.KafkaQueue.TimedQueueCache
         public QueueId Id { get; }
 
         public int Size => _cachedMessages.Count;
-        
+
         internal TimedQueueCacheItem FirstItem => _cachedMessages.First.Value;
 
         internal TimedQueueCacheItem LastItem => _cachedMessages.Last.Value;
@@ -124,7 +124,7 @@ namespace Orleans.Providers.Streams.KafkaQueue.TimedQueueCache
         {
             return _maxNumberToAdd;
         }
-		
+
         public bool IsUnderPressure()
         {
             // empty cache
@@ -139,14 +139,14 @@ namespace Orleans.Providers.Streams.KafkaQueue.TimedQueueCache
                 return false;
             }
 
-            // If the cache still has room, no problem of adding 
+            // If the cache still has room, no problem of adding
             if (Size < _maxCacheSize)
             {
                 CalculateMessagesToAdd();
                 return false;
             }
 
-            // cache is full. Need Check how many cursors we have in the oldest bucket 
+            // cache is full. Need Check how many cursors we have in the oldest bucket
             // AND that we don't break our timespan guarantee.
             var numCursorsInLastBucket = _cacheCursorHistogram[0].NumCurrentCursors;
 
@@ -163,7 +163,7 @@ namespace Orleans.Providers.Streams.KafkaQueue.TimedQueueCache
         private void CalculateMessagesToAdd()
         {
             // Checking if the current size of the cache is smaller than the maximum cache size, then we can add
-            // either the difference between the max size and the current size, or the 
+            // either the difference between the max size and the current size, or the
             // maximum messages that can be put in a bucket (the minimal of the two).
             // If the cache is currently full (Size = _maxCacheSize), then we can only add as the number of the events
             // in the last bucket (since we are going to remove all the messages there)
@@ -211,7 +211,7 @@ namespace Orleans.Providers.Streams.KafkaQueue.TimedQueueCache
                 return;
             }
 
-            // if offset is not set, iterate from newest (first) message in cache, but not 
+            // if offset is not set, iterate from newest (first) message in cache, but not
             // including the first message itself
             if (sequenceToken == null)
             {
@@ -234,7 +234,7 @@ namespace Orleans.Providers.Streams.KafkaQueue.TimedQueueCache
             // Check to see if offset is too old to be in cache
             if (flooredToken.Older(LastItem.SequenceToken))
             {
-                // We don't throw cache misses, we are more tolerant. Starting the cursor 
+                // We don't throw cache misses, we are more tolerant. Starting the cursor
                 // from the last message and logging the incident
                 _logger.Info("TimedQueueCache for QueueId:{0}, InitializeCursor: Sequence tried to subscribe with an older token: {0}, started instead from oldest token in cache which is: {1} and was inserted on {2}", Id.ToString(), sequenceToken, LastItem.SequenceToken, LastItem.Timestamp);
                 SetCursor(cursor, _cachedMessages.Last);
@@ -390,7 +390,7 @@ namespace Orleans.Providers.Streams.KafkaQueue.TimedQueueCache
 
             var newNode = new LinkedListNode<TimedQueueCacheItem>(item);
 
-            // If it's the first item, then we also update 
+            // If it's the first item, then we also update
             if (cacheBucket.NumCurrentItems == 1)
             {
                 Log(_logger, "TimedQueueCache for QueueId:{0}, Add: The oldest timespan in the cache is {1}", Id.ToString(), item.Timestamp);
@@ -407,7 +407,7 @@ namespace Orleans.Providers.Streams.KafkaQueue.TimedQueueCache
 
         private DateTime GetTimestampForItem(IBatchContainer batch)
         {
-            // Here we check if the batch is a kafka stream 
+            // Here we check if the batch is a kafka stream
             return !(batch is KafkaBatchContainer batchAsKafkaBatch)
                 ? DateTime.UtcNow
                 : DateTime.ParseExact(batchAsKafkaBatch.Timestamp, "O", CultureInfo.InvariantCulture).ToUniversalTime();
@@ -417,20 +417,20 @@ namespace Orleans.Providers.Streams.KafkaQueue.TimedQueueCache
         {
             var removedMessages = new List<IBatchContainer>();
 
-            // If it's a size issue, then we have to remove at least one message immediately 
+            // If it's a size issue, then we have to remove at least one message immediately
             // (No need to check for last bucket, cause if there was an issue the cache would be under pressure)
             if (Size > _maxCacheSize && _cacheCursorHistogram[0].NumCurrentCursors == 0)
             {
                 Log(_logger, "TimedQueueCache for QueueId:{0}, Add: last  message because of size", Id.ToString());
 
-                // Removing the last message in case its the last message in a bucket also causes the buckets removal                
+                // Removing the last message in case its the last message in a bucket also causes the buckets removal
                 var lastRemovedMessage = RemoveLastMessage();
 
                 // Adding to the removed messages
                 removedMessages.Add(lastRemovedMessage);
             }
 
-            // Now we are looking for old messages that needs to go away 
+            // Now we are looking for old messages that needs to go away
             // (the condition is that they are older than cache timespan and their bucket has no cursors on it)
             while (_cacheCursorHistogram.Count > 0 && _cacheCursorHistogram[0].NumCurrentCursors == 0 &&
                    DateTime.UtcNow - LastItem.Timestamp > _cacheTimeSpan)

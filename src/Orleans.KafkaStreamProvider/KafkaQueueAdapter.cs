@@ -17,7 +17,7 @@ namespace Orleans.Providers.Streams.KafkaQueue
         private readonly SerializationManager _serializationManager;
         private readonly KafkaStreamProviderOptions _options;
         private readonly KafkaMessageSender _producer;
-    
+
         public bool IsRewindable => true;
 
         public string Name { get; }
@@ -53,7 +53,7 @@ namespace Orleans.Providers.Streams.KafkaQueue
         public async Task QueueMessageBatchAsync<T>(Guid streamGuid, string streamNamespace, IEnumerable<T> events, StreamSequenceToken token, Dictionary<string, object> requestContext)
         {
             var queueId = _streamQueueMapper.GetQueueForStream(streamGuid, streamNamespace);
-            
+
             var partitionId = (int)queueId.GetNumericId();
 
             _logger.Debug("For StreamId: {0}, StreamNamespace:{1} using partition {2}", streamGuid, streamNamespace, partitionId);
