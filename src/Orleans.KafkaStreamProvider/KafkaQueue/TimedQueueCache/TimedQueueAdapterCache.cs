@@ -1,5 +1,5 @@
 ﻿using System;
-using Orleans.Runtime;
+using Microsoft.Extensions.Logging;
 using Orleans.Streams;
 
 namespace Orleans.KafkaStreamProvider.KafkaQueue.TimedQueueCache
@@ -8,16 +8,17 @@ namespace Orleans.KafkaStreamProvider.KafkaQueue.TimedQueueCache
     {
         private readonly TimeSpan _cacheTimeSpan;
         private readonly int _cacheNumOfBuckets;
-        private readonly Logger _logger;
+        private readonly ILogger _logger;
         
-        public TimedQueueAdapterCache(IQueueAdapterFactory factory, TimeSpan cacheTimeSpan, int cacheSize, int cacheNumOfBuckets, Logger logger)
+        public TimedQueueAdapterCache(TimeSpan cacheTimeSpan, int cacheSize, int cacheNumOfBuckets, ILoggerFactory loggerFactory)
         {
             if (cacheTimeSpan == TimeSpan.Zero)
                 throw new ArgumentOutOfRangeException(nameof(cacheTimeSpan), "cacheTimeSpan must be larger than zero TimeSpan.");
+
             _cacheTimeSpan = cacheTimeSpan;
             Size = cacheSize;
             _cacheNumOfBuckets = cacheNumOfBuckets;
-            _logger = logger;
+            _logger = loggerFactory.CreateLogger<TimedQueueAdapterCache>();
         }
 
         public IQueueCache CreateQueueCache(QueueId queueId)

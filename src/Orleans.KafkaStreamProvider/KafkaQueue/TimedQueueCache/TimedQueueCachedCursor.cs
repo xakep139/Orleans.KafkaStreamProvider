@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using Microsoft.Extensions.Logging;
 using Orleans.Runtime;
 using Orleans.Streams;
 
@@ -14,7 +15,7 @@ namespace Orleans.KafkaStreamProvider.KafkaQueue.TimedQueueCache
         private readonly Guid _streamGuid;
         private readonly string _streamNamespace;
         private readonly TimedQueueCache _cache;
-        private readonly Logger _logger;
+        private readonly ILogger _logger;
         private IBatchContainer _current; // this is a pointer to the current element in the cache. It is what will be returned by GetCurrent().
 
         // This is a pointer to the NEXT element in the cache.
@@ -38,13 +39,9 @@ namespace Orleans.KafkaStreamProvider.KafkaQueue.TimedQueueCache
             SequenceToken = item.Value.SequenceToken;
         }
 
-        public TimedQueueCacheCursor(TimedQueueCache cache, Guid streamGuid, string streamNamespace, Logger logger)
+        public TimedQueueCacheCursor(TimedQueueCache cache, Guid streamGuid, string streamNamespace, ILogger logger)
         {
-            if (cache == null)
-            {
-                throw new ArgumentNullException(nameof(cache));
-            }
-            _cache = cache;
+            _cache = cache ?? throw new ArgumentNullException(nameof(cache));
             _streamGuid = streamGuid;
             _streamNamespace = streamNamespace;
             _logger = logger;
@@ -75,6 +72,15 @@ namespace Orleans.KafkaStreamProvider.KafkaQueue.TimedQueueCache
             return true;
         }
 
+        public void Refresh(StreamSequenceToken token)
+        {
+            if (!IsSet)
+            {
+                SequenceToken = token;
+                _cache.InitializeCursor(this, token);
+            }
+        }
+
         private bool IsInStream(IBatchContainer batchContainer)
         {
             return batchContainer != null &&
@@ -103,14 +109,6 @@ namespace Orleans.KafkaStreamProvider.KafkaQueue.TimedQueueCache
         {
             return string.Format("<TimedQueueCacheCursor: Element={0}, SequenceToken={1}>",
                 NextElement != null ? NextElement.Value.Batch.ToString() : "null", SequenceToken?.ToString() ?? "null");
-        }
-
-        public void Refresh()
-        {
-            if (!IsSet)
-            {
-                _cache.InitializeCursor(this, SequenceToken);
-            }
         }
 
         public void RecordDeliveryFailure()

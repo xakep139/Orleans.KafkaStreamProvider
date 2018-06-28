@@ -1,80 +1,63 @@
 ﻿using System;
 using System.Threading.Tasks;
-using Metrics;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Orleans.Configuration;
 using Orleans.KafkaStreamProvider.KafkaQueue.TimedQueueCache;
-using Orleans.Providers;
-using Orleans.Runtime;
+using Orleans.Serialization;
 using Orleans.Streams;
 
 namespace Orleans.KafkaStreamProvider.KafkaQueue
 {
-    /// <summary>
-    /// Factory class for KafkaQueueAdapter.
-    /// </summary>
     public class KafkaQueueAdapterFactory : IQueueAdapterFactory
     {
-        private KafkaStreamProviderOptions _options;
-        private HashRingBasedStreamQueueMapper _streamQueueMapper;
-        private IQueueAdapterCache _adapterCache;
-        private string _providerName;
-        private Logger _logger;
-        private KafkaQueueAdapter _adapter;        
+        private readonly KafkaStreamProviderOptions _options;
+        private readonly HashRingBasedStreamQueueMapper _streamQueueMapper;
+        private readonly IQueueAdapterCache _adapterCache;
+        private readonly SerializationManager _serializationManager;
+        private readonly string _providerName;
+        private readonly ILoggerFactory _loggerFactory;
 
-        public void Init(IProviderConfiguration config, string providerName, Logger logger, IServiceProvider serviceProvider)
+        public KafkaQueueAdapterFactory(
+            string name,
+            KafkaStreamProviderOptions options,
+            SerializationManager serializationManager,
+            ILoggerFactory loggerFactory)
         {
-            if (config == null) throw new ArgumentNullException(nameof(config));
-            if (logger == null) throw new ArgumentNullException(nameof(logger));
-            if (String.IsNullOrEmpty(providerName)) throw new ArgumentNullException(nameof(providerName));
-
-            // Creating an options object with all the config values
-            _options = new KafkaStreamProviderOptions(config);
-
-            if (!_options.UsingExternalMetrics)
+            if (string.IsNullOrEmpty(name))
             {
-                Metric.Config.WithHttpEndpoint($"http://localhost:{_options.MetricsPort}/");
+                throw new ArgumentNullException(nameof(name));
             }
 
-            if (!_options.IncludeMetrics)
-            {
-                Metric.Context("KafkaStreamProvider").Advanced.CompletelyDisableMetrics();
-            }
+            _serializationManager = serializationManager;
+            _options = options ?? throw new ArgumentNullException(nameof(options));
+            _loggerFactory = loggerFactory ?? throw new ArgumentNullException(nameof(loggerFactory));
+            _providerName = name;
+            _streamQueueMapper = new HashRingBasedStreamQueueMapper(
+                new HashRingStreamQueueMapperOptions {TotalQueueCount = _options.NumOfQueues},
+                name);
 
-            _providerName = providerName;
-            _streamQueueMapper = new HashRingBasedStreamQueueMapper(_options.NumOfQueues, providerName);
-            _logger = logger;
-            _adapter = new KafkaQueueAdapter(_streamQueueMapper, _options, providerName, new KafkaBatchFactory(), _logger);
-            _adapterCache = new TimedQueueAdapterCache(this, TimeSpan.FromSeconds(_options.CacheTimespanInSeconds), _options.CacheSize, _options.CacheNumOfBuckets, logger);
+            _adapterCache = new TimedQueueAdapterCache(TimeSpan.FromSeconds(_options.CacheTimespanInSeconds), _options.CacheSize, _options.CacheNumOfBuckets, _loggerFactory);
         }
 
         public Task<IQueueAdapter> CreateAdapter()
         {
-            if (_adapter == null)
-            {
-                _adapter = new KafkaQueueAdapter(_streamQueueMapper, _options, _providerName,
-                    new KafkaBatchFactory(), _logger);
-            }
-
-            return Task.FromResult<IQueueAdapter>(_adapter);
+            var adapter = new KafkaQueueAdapter(_serializationManager, _streamQueueMapper, _options, _providerName, _loggerFactory);
+            return Task.FromResult<IQueueAdapter>(adapter);
         }
 
-        /// <summary>
-        /// Creates a delivery failure handler for the specified queue.
-        /// </summary>
-        /// <param name="queueId"></param>
-        /// <returns></returns>
-        public Task<IStreamFailureHandler> GetDeliveryFailureHandler(QueueId queueId)
-        {
-            return Task.FromResult<IStreamFailureHandler>(new NoOpStreamDeliveryFailureHandler(false));
-        }
+        public Task<IStreamFailureHandler> GetDeliveryFailureHandler(QueueId queueId) =>
+            Task.FromResult<IStreamFailureHandler>(new NoOpStreamDeliveryFailureHandler(false));
 
-        public IQueueAdapterCache GetQueueAdapterCache()
-        {
-            return _adapterCache;
-        }
+        public IQueueAdapterCache GetQueueAdapterCache() => _adapterCache;
 
-        public IStreamQueueMapper GetStreamQueueMapper()
+        public IStreamQueueMapper GetStreamQueueMapper() => _streamQueueMapper;
+
+        public static IQueueAdapterFactory Create(IServiceProvider services, string name)
         {
-            return _streamQueueMapper;
+            var options = services.GetOptionsByName<KafkaStreamProviderOptions>(name);
+            var factory = ActivatorUtilities.CreateInstance<KafkaQueueAdapterFactory>(services, name, options);
+            return factory;
         }
     }
 }
