@@ -4,12 +4,13 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Orleans.Configuration;
 using Orleans.Providers.Streams.KafkaQueue.TimedQueueCache;
+using Orleans.Runtime;
 using Orleans.Serialization;
 using Orleans.Streams;
 
 namespace Orleans.Providers.Streams.KafkaQueue
 {
-    public class KafkaQueueAdapterFactory : IQueueAdapterFactory
+    public class KafkaQueueAdapterFactory : IQueueAdapterFactory, IStreamFailureHandler
     {
         private readonly KafkaStreamProviderOptions _options;
         private readonly HashRingBasedStreamQueueMapper _streamQueueMapper;
@@ -17,6 +18,7 @@ namespace Orleans.Providers.Streams.KafkaQueue
         private readonly SerializationManager _serializationManager;
         private readonly string _providerName;
         private readonly ILoggerFactory _loggerFactory;
+        private readonly ILogger<KafkaQueueAdapterFactory> _logger;
 
         public KafkaQueueAdapterFactory(
             string name,
@@ -32,9 +34,10 @@ namespace Orleans.Providers.Streams.KafkaQueue
             _serializationManager = serializationManager;
             _options = options ?? throw new ArgumentNullException(nameof(options));
             _loggerFactory = loggerFactory ?? throw new ArgumentNullException(nameof(loggerFactory));
+            _logger = _loggerFactory.CreateLogger<KafkaQueueAdapterFactory>();
             _providerName = name;
             _streamQueueMapper = new HashRingBasedStreamQueueMapper(
-                new HashRingStreamQueueMapperOptions {TotalQueueCount = _options.NumOfQueues},
+                new HashRingStreamQueueMapperOptions { TotalQueueCount = _options.PartitionsCount },
                 name);
 
             _adapterCache = new TimedQueueAdapterCache(TimeSpan.FromSeconds(_options.CacheTimespanInSeconds), _options.CacheSize, _options.CacheNumOfBuckets, _loggerFactory);
@@ -47,7 +50,7 @@ namespace Orleans.Providers.Streams.KafkaQueue
         }
 
         public Task<IStreamFailureHandler> GetDeliveryFailureHandler(QueueId queueId) =>
-            Task.FromResult<IStreamFailureHandler>(new NoOpStreamDeliveryFailureHandler(false));
+            Task.FromResult<IStreamFailureHandler>(this);
 
         public IQueueAdapterCache GetQueueAdapterCache() => _adapterCache;
 
@@ -59,5 +62,21 @@ namespace Orleans.Providers.Streams.KafkaQueue
             var factory = ActivatorUtilities.CreateInstance<KafkaQueueAdapterFactory>(services, name, options);
             return factory;
         }
+
+        public Task OnDeliveryFailure(GuidId subscriptionId, string streamProviderName, IStreamIdentity streamIdentity, StreamSequenceToken sequenceToken)
+        {
+            _logger.LogError("{subscriptionId}, {streamProviderName}, {streamIdentity}, {sequenceToken}", subscriptionId, streamProviderName, streamIdentity, sequenceToken);
+
+            return Task.CompletedTask;
+        }
+
+        public Task OnSubscriptionFailure(GuidId subscriptionId, string streamProviderName, IStreamIdentity streamIdentity, StreamSequenceToken sequenceToken)
+        {
+            _logger.LogError("{subscriptionId}, {streamProviderName}, {streamIdentity}, {sequenceToken}", subscriptionId, streamProviderName, streamIdentity, sequenceToken);
+
+            return Task.CompletedTask;
+        }
+
+        public bool ShouldFaultSubsriptionOnError { get; } = true;
     }
 }

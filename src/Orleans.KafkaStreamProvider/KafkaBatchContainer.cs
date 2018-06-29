@@ -14,10 +14,11 @@ namespace Orleans.Providers.Streams.KafkaQueue
         private readonly List<object> _events;
 
         private readonly Dictionary<string, object> _requestContext;
+        private readonly StreamSequenceToken _sequenceToken;
 
         public Guid StreamGuid { get; }
         public string StreamNamespace { get; }
-        public StreamSequenceToken SequenceToken { get; }
+        public StreamSequenceToken SequenceToken => _sequenceToken ?? (TopicPartitionOffset?.Offset != null ? new EventSequenceToken(TopicPartitionOffset.Offset) : null);
         public string Timestamp { get; }
         public TopicPartitionOffset TopicPartitionOffset { get; set; }
 
@@ -26,7 +27,7 @@ namespace Orleans.Providers.Streams.KafkaQueue
             _events = events ?? throw new ArgumentNullException(nameof(events), "Message contains no events");
 
             StreamGuid = streamId;
-            SequenceToken = token;
+            _sequenceToken = token;
             StreamNamespace = streamNamespace;
             _requestContext = requestContext;
             Timestamp = DateTime.UtcNow.ToString("O");

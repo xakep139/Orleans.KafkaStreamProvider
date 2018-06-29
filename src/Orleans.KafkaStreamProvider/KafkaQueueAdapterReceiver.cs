@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using System.Threading.Tasks.Dataflow;
 using Confluent.Kafka;
 using Microsoft.Extensions.Logging;
 using Orleans.Runtime;
@@ -13,19 +12,16 @@ namespace Orleans.Providers.Streams.KafkaQueue
 {
     public class KafkaQueueAdapterReceiver : KafkaConsumerWrapper, IQueueAdapterReceiver
     {
-        private Task _currentCommitTask;
         private readonly ILogger<KafkaQueueAdapterReceiver> _logger;
         private readonly SerializationManager _serializationManager;
         private readonly KafkaStreamProviderOptions _options;
 
-        private readonly BufferBlock<Message<Null, byte[]>>
-            _messageQueue = new BufferBlock<Message<Null, byte[]>>();
+        private readonly Queue<Message<Null, byte[]>>
+            _messageQueue = new Queue<Message<Null, byte[]>>();
 
         private bool _partitionEofReached;
 
         public QueueId Id { get; }
-
-        public long CurrentOffset { get; private set; }
 
         public KafkaQueueAdapterReceiver(
             SerializationManager serializationManager,
@@ -43,44 +39,42 @@ namespace Orleans.Providers.Streams.KafkaQueue
 
         public Task Initialize(TimeSpan timeout)
         {
-            Consumer.Subscribe(_options.TopicName);
             Consumer.OnMessage += OnMessage;
             Consumer.OnPartitionEOF += OnPartitionEof;
+            Consumer.Subscribe(_options.TopicName);
 
             return Task.CompletedTask;
         }
 
         private void OnPartitionEof(object sender, TopicPartitionOffset e) => _partitionEofReached = true;
 
-        private void OnMessage(object sender, Message<Null, byte[]> message) => _messageQueue.Post(message);
+        private void OnMessage(object sender, Message<Null, byte[]> message) => _messageQueue.Enqueue(message);
 
-        public async Task<IList<IBatchContainer>> GetQueueMessagesAsync(int maxCount)
+        public Task<IList<IBatchContainer>> GetQueueMessagesAsync(int maxCount)
         {
-            IList<IBatchContainer> batches = new List<IBatchContainer>(maxCount);
-            while (!_partitionEofReached && _messageQueue.Count < maxCount)
+            _partitionEofReached = false;
+            //while (!_partitionEofReached && _messageQueue.Count < maxCount)
             {
-                Consumer.Poll(100);
+                Consumer.Poll(0);
             }
 
-            while (await _messageQueue.OutputAvailableAsync())
+            IList<IBatchContainer> batches = new List<IBatchContainer>();
+            if (_messageQueue.Count < 1)
             {
-                var message = await _messageQueue.ReceiveAsync();
-                batches.Add(FromKafkaMessage(_serializationManager, message));
+                return Task.FromResult(batches);
             }
 
-            // No batches, we are done here..
-            if (batches.Count <= 0)
+            while (_messageQueue.Count > 0)
             {
-                return batches;
+                batches.Add(FromKafkaMessage(_serializationManager, _messageQueue.Dequeue()));
             }
 
-            _logger.Debug("Pulled {0} messages for queue number {1}", batches.Count, Id.GetNumericId());
-            CurrentOffset += batches.Count;
+            _logger.Debug("Pulled {0} messages for queue number {1} from topic {topic}", batches.Count, Id.GetNumericId(), _options.TopicName);
 
-            return batches;
+            return Task.FromResult(batches);
         }
 
-        private IBatchContainer FromKafkaMessage(SerializationManager serializationManager, Message<Null, byte[]> message)
+        private static IBatchContainer FromKafkaMessage(SerializationManager serializationManager, Message<Null, byte[]> message)
         {
             var kafkaBatch = serializationManager.DeserializeFromByteArray<KafkaBatchContainer>(message.Value);
             kafkaBatch.TopicPartitionOffset = message.TopicPartitionOffset;
@@ -88,35 +82,32 @@ namespace Orleans.Providers.Streams.KafkaQueue
             return kafkaBatch;
         }
 
-        public async Task Shutdown(TimeSpan timeout)
+        public Task Shutdown(TimeSpan timeout)
         {
-            if (_currentCommitTask != null)
-            {
-                await Task.WhenAny(_currentCommitTask, Task.Delay(timeout));
-                _currentCommitTask = null;
+            Consumer.Unsubscribe();
+            Consumer.OnMessage -= OnMessage;
+            Consumer.OnPartitionEOF -= OnPartitionEof;
+            Dispose();
 
-                Consumer.Unsubscribe();
-                Consumer.OnMessage -= OnMessage;
-                Consumer.OnPartitionEOF -= OnPartitionEof;
-                Dispose();
+            _logger.Debug("The receiver was shutted down");
 
-                _logger.Debug("The receiver had finished a commit and was shutted down");
-            }
+            return Task.CompletedTask;
         }
 
         public async Task MessagesDeliveredAsync(IList<IBatchContainer> messages)
         {
-            // Finding the highest offset
-            if (messages.Any())
+            if (messages.Count > 0)
             {
+                // Finding the highest offset
                 var lastBatch = messages.OfType<KafkaBatchContainer>()
-                    .OrderByDescending(m => m.SequenceToken)
+                    .OrderByDescending(m => m.TopicPartitionOffset.Offset.Value)
                     .First();
 
-                await Consumer.CommitAsync(new[] {lastBatch.TopicPartitionOffset});
+                var topicPartitionOffset = lastBatch.TopicPartitionOffset;
+                await Consumer.CommitAsync(new[] { new TopicPartitionOffset(topicPartitionOffset.TopicPartition, topicPartitionOffset.Offset + 1) });
 
-                _logger.Debug("Committed an offset to the ConsumerGroup. ConsumerGroup is {0}, TopicPartitionOffset is {1}",
-                    _options.ConsumerGroupName, lastBatch.TopicPartitionOffset);
+                _logger.Debug("Committed an offset to the ConsumerGroup {0}, TopicPartitionOffset: {1}",
+                    _options.ConsumerGroup, topicPartitionOffset);
             }
         }
     }
