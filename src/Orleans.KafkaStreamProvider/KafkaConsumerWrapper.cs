@@ -12,11 +12,11 @@ namespace Orleans.Providers.Streams.KafkaQueue
 
         protected Consumer<Null, byte[]> Consumer { get; }
 
-        protected KafkaConsumerWrapper(ILogger logger, KafkaStreamProviderOptions kafkaOptions)
+        protected KafkaConsumerWrapper(ILogger logger, KafkaStreamProviderOptions options)
         {
             _logger = logger;
             Consumer = new Consumer<Null, byte[]>(
-                CreateConsumerConfig(kafkaOptions),
+                CreateConsumerConfig(options),
                 new NullDeserializer(),
                 new ByteArrayDeserializer());
 
@@ -41,7 +41,7 @@ namespace Orleans.Providers.Streams.KafkaQueue
                     // https://github.com/edenhill/librdkafka/blob/master/CONFIGURATION.md
                     { "bootstrap.servers", kafkaOptions.BrokerEndpoints },
                     { "api.version.request", true },
-                    { "group.id", string.IsNullOrEmpty(kafkaOptions.ConsumerGroupName) ? Guid.NewGuid().ToString() : kafkaOptions.ConsumerGroupName },
+                    { "group.id", string.IsNullOrEmpty(kafkaOptions.ConsumerGroup) ? Guid.NewGuid().ToString() : kafkaOptions.ConsumerGroup },
                     { "enable.auto.commit", kafkaOptions.Consumer.EnableAutoCommit },
                     { "fetch.wait.max.ms", kafkaOptions.Consumer.FetchWaitMaxMs },
                     { "fetch.error.backoff.ms", kafkaOptions.Consumer.FetchErrorBackoffMs },

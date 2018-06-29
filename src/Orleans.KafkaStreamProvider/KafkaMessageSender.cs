@@ -7,7 +7,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Orleans.Providers.Streams.KafkaQueue
 {
-    public class KafkaMessageSender
+    public class KafkaMessageSender : IDisposable
     {
         private readonly ILogger<KafkaMessageSender> _logger;
         private readonly Producer<Null, byte[]> _producer;
@@ -52,11 +52,10 @@ namespace Orleans.Providers.Streams.KafkaQueue
             {
                 var result = await _producer.ProduceAsync(topic, null, message, partition);
                 _logger.LogDebug(
-                    "Produced to Kafka. Topic/partition/offset: '{kafkaTopic}/{kafkaPartition}/{kafkaOffset}'. Message: '{kafkaMessage}'.",
+                    "Produced to Kafka. Topic/partition/offset: '{kafkaTopic}/{kafkaPartition}/{kafkaOffset}'.",
                     result.Topic,
                     result.Partition,
-                    result.Offset,
-                    message);
+                    result.Offset);
 
                 if (result.Error.HasError)
                 {
@@ -68,9 +67,8 @@ namespace Orleans.Providers.Streams.KafkaQueue
                 _logger.LogError(
                     default,
                     ex,
-                    "Error producing to Kafka. Topic: '{kafkaTopic}'. Message: {kafkaMessage}'.",
-                    topic,
-                    message);
+                    "Error producing to Kafka. Topic: '{kafkaTopic}'.",
+                    topic);
                 throw;
             }
         }

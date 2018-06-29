@@ -3,11 +3,11 @@
     public class KafkaStreamProviderOptions
     {
         public string TopicName { get; set; }
-        public string ConsumerGroupName { get; set; }
+        public string ConsumerGroup { get; set; }
         public string BrokerEndpoints { get; set; }
         public ConsumerOptions Consumer { get; set; }
         public ProducerOptions Producer { get; set; }
-        public int NumOfQueues { get; set; } = 1;
+        public int PartitionsCount { get; set; } = 1;
         public int CacheSize { get; set; } = 4096 * 4;
         public int CacheTimespanInSeconds { get; set; } = 60;
         public int CacheNumOfBuckets { get; set; } = 10;

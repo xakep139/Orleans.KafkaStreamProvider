@@ -47,8 +47,7 @@ namespace Orleans.Providers.Streams.KafkaQueue
             _logger.Info("{0} - Created", nameof(KafkaQueueAdapter));
         }
 
-        public IQueueAdapterReceiver CreateReceiver(QueueId queueId) =>
-            new KafkaQueueAdapterReceiver(_serializationManager, queueId, _options, _loggerFactory);
+        public IQueueAdapterReceiver CreateReceiver(QueueId queueId) => new KafkaQueueAdapterReceiver(_serializationManager, queueId, _options, _loggerFactory);
 
         public async Task QueueMessageBatchAsync<T>(Guid streamGuid, string streamNamespace, IEnumerable<T> events, StreamSequenceToken token, Dictionary<string, object> requestContext)
         {
