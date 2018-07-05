@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Text;
+
 using Confluent.Kafka;
 using Confluent.Kafka.Serialization;
 using Microsoft.Extensions.Logging;
@@ -10,15 +12,15 @@ namespace Orleans.Providers.Streams.KafkaQueue
     {
         private readonly ILogger _logger;
 
-        protected Consumer<Null, byte[]> Consumer { get; }
+        protected Consumer<string, string> Consumer { get; }
 
         protected KafkaConsumerWrapper(ILogger logger, KafkaStreamProviderOptions options)
         {
             _logger = logger;
-            Consumer = new Consumer<Null, byte[]>(
+            Consumer = new Consumer<string, string>(
                 CreateConsumerConfig(options),
-                new NullDeserializer(),
-                new ByteArrayDeserializer());
+                new StringDeserializer(Encoding.UTF8),
+                new StringDeserializer(Encoding.UTF8));
 
             Consumer.OnLog += OnLog;
             Consumer.OnError += OnError;
@@ -41,7 +43,7 @@ namespace Orleans.Providers.Streams.KafkaQueue
                     // https://github.com/edenhill/librdkafka/blob/master/CONFIGURATION.md
                     { "bootstrap.servers", kafkaOptions.BrokerEndpoints },
                     { "api.version.request", true },
-                    { "group.id", string.IsNullOrEmpty(kafkaOptions.ConsumerGroup) ? Guid.NewGuid().ToString() : kafkaOptions.ConsumerGroup },
+                    { "group.id", string.IsNullOrEmpty(kafkaOptions.Consumer.ConsumerGroup) ? Guid.NewGuid().ToString() : kafkaOptions.Consumer.ConsumerGroup },
                     { "enable.auto.commit", kafkaOptions.Consumer.EnableAutoCommit },
                     { "fetch.wait.max.ms", kafkaOptions.Consumer.FetchWaitMaxMs },
                     { "fetch.error.backoff.ms", kafkaOptions.Consumer.FetchErrorBackoffMs },

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Text;
 using System.Threading.Tasks;
 using Confluent.Kafka;
 using Confluent.Kafka.Serialization;
@@ -10,7 +11,7 @@ namespace Orleans.Providers.Streams.KafkaQueue
     public class KafkaMessageSender : IDisposable
     {
         private readonly ILogger<KafkaMessageSender> _logger;
-        private readonly Producer<Null, byte[]> _producer;
+        private readonly Producer<string, string> _producer;
 
         public KafkaMessageSender(ILoggerFactory loggerFactory, KafkaStreamProviderOptions options)
         {
@@ -40,13 +41,14 @@ namespace Orleans.Providers.Streams.KafkaQueue
                             }
                     }
                 };
-            _producer = new Producer<Null, byte[]>(producerConfig, new NullSerializer(), new ByteArraySerializer());
+
+            _producer = new Producer<string, string>(producerConfig, new StringSerializer(Encoding.UTF8), new StringSerializer(Encoding.UTF8));
             _producer.OnLog += OnLog;
             _producer.OnError += OnLogError;
             _producer.OnStatistics += OnStatistics;
         }
 
-        public async Task SendAsync(string topic, byte[] message, int partition)
+        public async Task SendAsync(string topic, string message, int partition)
         {
             try
             {

@@ -3,9 +3,8 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Orleans.Configuration;
-using Orleans.Providers.Streams.KafkaQueue.TimedQueueCache;
+using Orleans.Providers.Streams.Common;
 using Orleans.Runtime;
-using Orleans.Serialization;
 using Orleans.Streams;
 
 namespace Orleans.Providers.Streams.KafkaQueue
@@ -15,7 +14,6 @@ namespace Orleans.Providers.Streams.KafkaQueue
         private readonly KafkaStreamProviderOptions _options;
         private readonly HashRingBasedStreamQueueMapper _streamQueueMapper;
         private readonly IQueueAdapterCache _adapterCache;
-        private readonly SerializationManager _serializationManager;
         private readonly string _providerName;
         private readonly ILoggerFactory _loggerFactory;
         private readonly ILogger<KafkaQueueAdapterFactory> _logger;
@@ -23,7 +21,6 @@ namespace Orleans.Providers.Streams.KafkaQueue
         public KafkaQueueAdapterFactory(
             string name,
             KafkaStreamProviderOptions options,
-            SerializationManager serializationManager,
             ILoggerFactory loggerFactory)
         {
             if (string.IsNullOrEmpty(name))
@@ -31,7 +28,6 @@ namespace Orleans.Providers.Streams.KafkaQueue
                 throw new ArgumentNullException(nameof(name));
             }
 
-            _serializationManager = serializationManager;
             _options = options ?? throw new ArgumentNullException(nameof(options));
             _loggerFactory = loggerFactory ?? throw new ArgumentNullException(nameof(loggerFactory));
             _logger = _loggerFactory.CreateLogger<KafkaQueueAdapterFactory>();
@@ -40,12 +36,12 @@ namespace Orleans.Providers.Streams.KafkaQueue
                 new HashRingStreamQueueMapperOptions { TotalQueueCount = _options.PartitionsCount },
                 name);
 
-            _adapterCache = new TimedQueueAdapterCache(TimeSpan.FromSeconds(_options.CacheTimespanInSeconds), _options.CacheSize, _options.CacheNumOfBuckets, _loggerFactory);
+            _adapterCache = new SimpleQueueAdapterCache(new SimpleQueueCacheOptions { CacheSize = options.Cache.CacheSize }, _providerName, _loggerFactory);
         }
 
         public Task<IQueueAdapter> CreateAdapter()
         {
-            var adapter = new KafkaQueueAdapter(_serializationManager, _streamQueueMapper, _options, _providerName, _loggerFactory);
+            var adapter = new KafkaQueueAdapter(_streamQueueMapper, _options, _providerName, _loggerFactory);
             return Task.FromResult<IQueueAdapter>(adapter);
         }
 
@@ -65,14 +61,24 @@ namespace Orleans.Providers.Streams.KafkaQueue
 
         public Task OnDeliveryFailure(GuidId subscriptionId, string streamProviderName, IStreamIdentity streamIdentity, StreamSequenceToken sequenceToken)
         {
-            _logger.LogError("{subscriptionId}, {streamProviderName}, {streamIdentity}, {sequenceToken}", subscriptionId, streamProviderName, streamIdentity, sequenceToken);
+            _logger.LogCritical(
+                "Delivery failure. Subscription: {subscriptionId}, stream provider: {streamProviderName}, stream identity: {streamIdentity}, sequence token: {sequenceToken}",
+                subscriptionId,
+                streamProviderName,
+                streamIdentity,
+                sequenceToken);
 
             return Task.CompletedTask;
         }
 
         public Task OnSubscriptionFailure(GuidId subscriptionId, string streamProviderName, IStreamIdentity streamIdentity, StreamSequenceToken sequenceToken)
         {
-            _logger.LogError("{subscriptionId}, {streamProviderName}, {streamIdentity}, {sequenceToken}", subscriptionId, streamProviderName, streamIdentity, sequenceToken);
+            _logger.LogError(
+                "Subscription failure. Subscription: {subscriptionId}, stream provider: {streamProviderName}, stream identity: {streamIdentity}, sequence token: {sequenceToken}",
+                subscriptionId,
+                streamProviderName,
+                streamIdentity,
+                sequenceToken);
 
             return Task.CompletedTask;
         }

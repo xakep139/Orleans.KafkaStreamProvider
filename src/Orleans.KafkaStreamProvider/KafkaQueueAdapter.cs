@@ -3,8 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
-using Orleans.Runtime;
-using Orleans.Serialization;
 using Orleans.Streams;
 
 namespace Orleans.Providers.Streams.KafkaQueue
@@ -14,7 +12,6 @@ namespace Orleans.Providers.Streams.KafkaQueue
         private readonly HashRingBasedStreamQueueMapper _streamQueueMapper;
         private readonly ILoggerFactory _loggerFactory;
         private readonly ILogger<KafkaQueueAdapter> _logger;
-        private readonly SerializationManager _serializationManager;
         private readonly KafkaStreamProviderOptions _options;
         private readonly KafkaMessageSender _producer;
 
@@ -24,7 +21,7 @@ namespace Orleans.Providers.Streams.KafkaQueue
 
         public StreamProviderDirection Direction => StreamProviderDirection.ReadWrite;
 
-        public KafkaQueueAdapter(SerializationManager serializationManager,
+        public KafkaQueueAdapter(
             HashRingBasedStreamQueueMapper queueMapper,
             KafkaStreamProviderOptions options,
             string providerName,
@@ -35,7 +32,6 @@ namespace Orleans.Providers.Streams.KafkaQueue
                 throw new ArgumentNullException(nameof(providerName));
             }
 
-            _serializationManager = serializationManager;
             _options = options ?? throw new ArgumentNullException(nameof(options));
             _streamQueueMapper = queueMapper ?? throw new ArgumentNullException(nameof(queueMapper));
             Name = providerName;
@@ -44,29 +40,28 @@ namespace Orleans.Providers.Streams.KafkaQueue
 
             _producer = new KafkaMessageSender(loggerFactory, options);
 
-            _logger.Info("{0} - Created", nameof(KafkaQueueAdapter));
+            _logger.LogInformation("{0} - Created", nameof(KafkaQueueAdapter));
         }
 
-        public IQueueAdapterReceiver CreateReceiver(QueueId queueId) => new KafkaQueueAdapterReceiver(_serializationManager, queueId, _options, _loggerFactory);
+        public IQueueAdapterReceiver CreateReceiver(QueueId queueId) => new KafkaQueueAdapterReceiver(Name, queueId, _options, _loggerFactory);
 
         public async Task QueueMessageBatchAsync<T>(Guid streamGuid, string streamNamespace, IEnumerable<T> events, StreamSequenceToken token, Dictionary<string, object> requestContext)
         {
+            if (token != null)
+            {
+                throw new NotSupportedException("Cannot queue message with custom sequence token");
+            }
+
             var queueId = _streamQueueMapper.GetQueueForStream(streamGuid, streamNamespace);
 
             var partitionId = (int)queueId.GetNumericId();
 
-            _logger.Debug("For StreamId: {0}, StreamNamespace:{1} using partition {2}", streamGuid, streamNamespace, partitionId);
+            _logger.LogDebug("For StreamId: {0}, StreamNamespace: {1} using partition {2}", streamGuid, streamNamespace, partitionId);
 
-            var container = new KafkaBatchContainer(streamGuid, streamNamespace, events.Cast<object>().ToList(), requestContext, token);
-            var payload = _serializationManager.SerializeToByteArray(container);
-
-            if (payload == null)
+            foreach (var @event in events.OfType<string>())
             {
-                _logger.Info("The batch factory returned a faulty message, the message was not sent");
-                return;
+                await _producer.SendAsync(_options.TopicName, @event, partitionId);
             }
-
-            await _producer.SendAsync(_options.TopicName, payload, partitionId);
         }
     }
 }
